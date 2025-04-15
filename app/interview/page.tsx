@@ -295,18 +295,18 @@ export default function InterviewPage() {
         throw new Error("No call ID found. The interview may not have started properly.");
       }
 
-      // Fetch analysis from Vapi API
-      console.log("Fetching analysis from Vapi API...");
-      const response = await fetch(`https://api.vapi.ai/call/${callId}`, {
+      // Fetch analysis from our secure API endpoint
+      console.log("Fetching analysis from API...");
+      const response = await fetch(`/api/vapi?callId=${callId}`, {
         method: "GET",
         headers: {
-          Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmdJZCI6ImQxMTU3MmMyLTk3YmYtNDhmNi05OGNkLTc3MjJmZGRkNmRhZiIsInRva2VuIjp7InRhZyI6InByaXZhdGUifSwiaWF0IjoxNzQ0NzQ2ODU4LCJleHAiOjE3NDQ3NTA0NTh9.jsQBOWVqHWft8PGCwDaDD526lcCR5cVwHxcDAmpBiYs",
           "Content-Type": "application/json",
         },
       });
 
       if (!response.ok) {
-        throw new Error(`Error fetching analysis: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Error fetching analysis: ${response.statusText}`);
       }
 
       const data = await response.json();
