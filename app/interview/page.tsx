@@ -319,7 +319,7 @@ export default function InterviewPage() {
       // Map the analysis data to our feedback format
       const feedback = {
         score: data.analysis.analysis.score || 0,
-        summary: data.analysis.analysis.summary || '',
+        summary: data.analysis.analysis.summary || 'No analysis data available. The interview may have been too short.',
         technicalScore: data.analysis.analysis.technicalKnowledge || 0,
         communicationScore: data.analysis.analysis.communicationSkills || 0,
         problemSolvingScore: data.analysis.analysis.problemSolving || 0
