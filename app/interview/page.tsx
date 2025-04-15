@@ -12,213 +12,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // Try to import from vapi-client, but have a fallback
 let getVapiClient: () => any
-let analyzeFeedback: (transcript: any, options: any) => Promise<any>
 
 try {
   const vapiModule = require("@/lib/vapi-client")
   getVapiClient = vapiModule.getVapiClient
-  analyzeFeedback = vapiModule.analyzeFeedback
 } catch (error) {
   console.error("Error importing Vapi client:", error)
-
-  // Fallback mock implementation
-  class MockVapi {
-    private apiKey: string
-    private call: any = null
-    private listeners: Record<string, Function[]> = {}
-
-    constructor(apiKey: string) {
-      this.apiKey = apiKey
-    }
-
-    async start(config: any) {
-      console.log("Starting Vapi call with config:", config)
-
-      // Simulate API call
-      this.call = {
-        id: "mock-call-" + Math.random().toString(36).substring(2, 9),
-        status: "in-progress",
-        config,
-      }
-
-      // Simulate events
-      setTimeout(() => this.emitEvent("started", { call: this.call }), 1000)
-
-      // Start simulating transcript
-      this.simulateTranscript()
-
-      return this.call
-    }
-
-    async stop() {
-      if (!this.call) return
-
-      this.call.status = "completed"
-      this.emitEvent("stopped", { call: this.call })
-      return this.call
-    }
-
-    async pause() {
-      if (!this.call) return
-
-      this.call.status = "paused"
-      this.emitEvent("paused", { call: this.call })
-      return this.call
-    }
-
-    async resume() {
-      if (!this.call) return
-
-      this.call.status = "in-progress"
-      this.emitEvent("resumed", { call: this.call })
-      return this.call
-    }
-
-    on(event: string, callback: Function) {
-      if (!this.listeners[event]) {
-        this.listeners[event] = []
-      }
-      this.listeners[event].push(callback)
-    }
-
-    private emitEvent(event: string, data: any) {
-      if (this.listeners[event]) {
-        this.listeners[event].forEach((callback) => callback(data))
-      }
-    }
-
-    // Simulate transcript events for demo
-    simulateTranscript() {
-      const questions = [
-        "Tell me about your experience with product management methodologies.",
-        "How do you prioritize features in your product roadmap?",
-        "Can you describe a situation where you had to make a difficult product decision?",
-      ]
-
-      let questionIndex = 0
-
-      // Simulate AI speaking
-      const simulateQuestion = () => {
-        if (questionIndex >= questions.length) return
-
-        const question = questions[questionIndex]
-
-        // Emit transcript for AI speaking
-        this.emitEvent("transcript", {
-          transcript: {
-            text: question,
-            isFinal: true,
-            speaker: "assistant",
-          },
-        })
-
-        questionIndex++
-
-        // Schedule next question after user response
-        if (questionIndex < questions.length) {
-          setTimeout(simulateQuestion, 20000) // Wait 20s between questions
-        } else {
-          // End interview after last question
-          setTimeout(() => {
-            this.emitEvent("transcript", {
-              transcript: {
-                text: "Thank you for your responses. The interview is now complete.",
-                isFinal: true,
-                speaker: "assistant",
-              },
-            })
-
-            setTimeout(() => {
-              this.stop()
-              // Store mock feedback directly
-              const mockFeedback = {
-                score: 85,
-                summary: "You demonstrated strong product thinking and methodical approaches to prioritization. Consider providing more specific metrics when discussing product success."
-              };
-              localStorage.setItem("mockr-feedback", JSON.stringify(mockFeedback));
-              
-              // Emit feedback event for consistency
-              this.emitEvent("feedback", {
-                feedback: mockFeedback
-              })
-            }, 2000)
-          }, 5000)
-        }
-      }
-
-      // Start the first question after 2 seconds
-      setTimeout(simulateQuestion, 2000)
-
-      // Simulate user responses
-      const userResponses = [
-        "I have experience with agile and lean methodologies. I've worked in scrum teams and used kanban boards for tracking work. I also believe in continuous delivery and getting feedback early.",
-        "I prioritize features based on business value, user impact, and effort required. I use frameworks like RICE - Reach, Impact, Confidence, and Effort - to score features objectively.",
-        "Yes, we had to decide whether to rebuild our platform from scratch or continue iterating on the existing codebase. After analyzing technical debt and future scalability needs, I recommended the rebuild despite short-term costs.",
-      ]
-
-      // Simulate user speaking after each AI question
-      let responseIndex = 0
-      const simulateUserResponse = () => {
-        if (responseIndex >= userResponses.length) return
-
-        const words = userResponses[responseIndex].split(" ")
-        let currentText = ""
-
-        // Simulate word-by-word transcription
-        const wordInterval = setInterval(() => {
-          if (words.length === 0) {
-            clearInterval(wordInterval)
-
-            // Final transcript
-            this.emitEvent("transcript", {
-              transcript: {
-                text: userResponses[responseIndex],
-                isFinal: true,
-                speaker: "user",
-              },
-            })
-
-            responseIndex++
-            return
-          }
-
-          currentText += " " + words.shift()
-
-          // Partial transcript
-          this.emitEvent("transcript", {
-            transcript: {
-              text: currentText,
-              isFinal: false,
-              speaker: "user",
-            },
-          })
-        }, 300)
-      }
-
-      // Start user responses after AI questions
-      setTimeout(() => {
-        simulateUserResponse()
-
-        // Schedule next responses
-        const responseInterval = setInterval(() => {
-          if (responseIndex >= userResponses.length) {
-            clearInterval(responseInterval)
-            return
-          }
-          simulateUserResponse()
-        }, 20000) // Match the question interval
-      }, 7000) // Start first response 5s after first question
-    }
-  }
-
-  // Fallback implementations
-  getVapiClient = () => new MockVapi(process.env.NEXT_PUBLIC_VAPI_API_KEY || "mock-key")
-  analyzeFeedback = async (transcript: any, options: any) => {
-    return {
-      score: 85,
-      summary: "You demonstrated strong product thinking and methodical approaches to prioritization. Consider providing more specific metrics when discussing product success."
-    }
-  }
+  throw new Error("Failed to import Vapi client. This application requires Vapi to function.")
 }
 
 interface InterviewData {
@@ -394,17 +194,6 @@ export default function InterviewPage() {
         return;
       }
 
-      // Set up feedback event handler
-      vapiRef.current.on("feedback", (data: FeedbackData) => {
-        // Store the feedback data in localStorage
-        if (data.feedback) {
-          localStorage.setItem("mockr-feedback", JSON.stringify({
-            score: data.feedback.score,
-            summary: data.feedback.summary
-          }));
-        }
-      });
-
       // Start the call with explicit microphone configuration
       await vapiRef.current.start({
         name: "Technical Interviewer",
@@ -418,7 +207,7 @@ export default function InterviewPage() {
           messages: [
             {
               role: "system",
-              content: `You are conducting a job interview for a ${interviewData.role} position. Review the candidate's resume: ${interviewData.resumeText} And the job description: ${interviewData.jobDescription}. Begin immediately with a relevant technical or behavioral question - do not introduce yourself or ask "how can I help you today". Maintain a professional tone throughout the interview. Ask one question at a time and wait for the response before proceeding. Be constructive in feedback.`
+              content: `You are conducting a job interview for a ${interviewData.role} position. Review the candidate's resume: ${interviewData.resumeText} And the job description: ${interviewData.jobDescription}. Begin immediately with a relevant technical or behavioral question - do not introduce yourself or ask "how can I help you today". Maintain a professional tone throughout the interview. Ask one question at a time and wait for the response before proceeding. And ask two to three questions max because the time limit of the interview is under 8 minutes.`
             }
           ]
         },
@@ -427,22 +216,34 @@ export default function InterviewPage() {
           voiceId: "jennifer"
         },
         analysisPlan: {
-          summaryPrompt: "You are an expert interviewer. Summarize the candidate's performance in the interview, highlighting their strengths and areas for improvement in 2-3 sentences.",
+          summaryPrompt: "Write direct feedback to the candidate about their interview performance. Focus on their strengths and specific areas for improvement. Use a professional but encouraging tone, addressing the candidate in the second person (you/your).",
           structuredDataSchema: {
             type: "object",
             properties: {
               score: {
                 type: "number",
-                description: "Overall interview score from 0-100"
+                description: "Overall interview score from 0-100 based on technical knowledge, communication skills, and problem-solving ability"
               },
               summary: {
                 type: "string",
-                description: "Summary of interview performance including strengths and areas for improvement"
+                description: "Direct feedback to the candidate about their performance, written in second person (you/your)"
+              },
+              technicalKnowledge: {
+                type: "number",
+                description: "Score from 0-100 for technical knowledge demonstrated"
+              },
+              communicationSkills: {
+                type: "number",
+                description: "Score from 0-100 for communication effectiveness"
+              },
+              problemSolving: {
+                type: "number",
+                description: "Score from 0-100 for problem-solving ability"
               }
             },
             required: ["score", "summary"]
           },
-          successEvaluationPrompt: "Evaluate the candidate's interview performance based on their technical knowledge, communication skills, and problem-solving ability.",
+          successEvaluationPrompt: "Evaluate the candidate's interview performance from their perspective, highlighting their strengths and areas for growth.",
           successEvaluationRubric: "PercentageScale"
         }
       });
@@ -463,61 +264,115 @@ export default function InterviewPage() {
   };
 
   const endInterview = async () => {
-    if (!vapiRef.current || !isStarted) return
+    if (!vapiRef.current || !isStarted) {
+      console.log("Early return - no vapi client or interview not started:", { 
+        hasVapiClient: !!vapiRef.current, 
+        isStarted 
+      });
+      return;
+    }
 
     try {
-      // Generate and get the feedback
-      const analysis = await vapiRef.current.analyze();
+      console.log("Starting interview end process...");
       
-      // Store the feedback
-      if (analysis && analysis.structuredData) {
+      // First stop the call
+      console.log("Stopping Vapi call...");
+      await vapiRef.current.stop();
+      
+      // Get the call analysis - it should be available on the current call
+      console.log("Getting call analysis...");
+      const callId = vapiRef.current.call?.id;
+      console.log("Call ID:", callId);
+      
+      // Start analysis and wait for results
+      console.log("Starting analysis...");
+      const analysisId = await vapiRef.current.analyze({ callId });
+      console.log("Analysis ID:", analysisId);
+      
+      // Wait for analysis to complete
+      console.log("Waiting for analysis results...");
+      const result = await vapiRef.current.waitForAnalysis(analysisId);
+      console.log("Analysis result:", result);
+      
+      // The analysis comes directly in the result from Vapi
+      if (result && result.analysis) {
+        console.log("Valid analysis received:", result.analysis);
+        
         const feedback = {
-          score: analysis.structuredData.score || 75,
-          summary: analysis.summary || "Interview completed. The AI will analyze your responses and provide detailed feedback."
+          score: result.analysis.score,
+          summary: result.analysis.summary,
+          technicalScore: result.analysis.technicalKnowledge,
+          communicationScore: result.analysis.communicationSkills,
+          problemSolvingScore: result.analysis.problemSolving
         };
+        console.log("Processed feedback:", feedback);
+        
+        // Validate the feedback
+        if (!feedback.summary) {
+          console.log("Missing summary in feedback");
+          throw new Error("Interview was too short or no responses were recorded. Please try again with longer, more detailed responses.");
+        }
+        
+        console.log("Storing feedback in localStorage");
         localStorage.setItem("mockr-feedback", JSON.stringify(feedback));
+      } else {
+        console.log("Invalid or missing analysis:", result);
+        throw new Error("No analysis received from Vapi. The interview may have been too short.");
       }
 
-      // Stop the call
-      await vapiRef.current.stop()
-
-      // Clear volume meter interval
+      // Clean up resources
+      console.log("Starting cleanup...");
+      
       if (volumeIntervalRef.current) {
-        clearInterval(volumeIntervalRef.current)
-        volumeIntervalRef.current = null
+        console.log("Clearing volume meter interval");
+        clearInterval(volumeIntervalRef.current);
+        volumeIntervalRef.current = null;
       }
 
       // Stop all microphone tracks
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        stream.getTracks().forEach(track => track.stop())
+        console.log("Stopping microphone tracks...");
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        console.log("Microphone tracks stopped");
       } catch (error) {
-        console.error("Error stopping microphone:", error)
+        console.error("Error stopping microphone:", error);
       }
 
       // Clean up audio context if it exists
       try {
-        const audioContext = new AudioContext()
-        await audioContext.close()
+        console.log("Closing audio context...");
+        const audioContext = new AudioContext();
+        await audioContext.close();
+        console.log("Audio context closed");
       } catch (error) {
-        console.error("Error closing audio context:", error)
+        console.error("Error closing audio context:", error);
       }
 
-      setIsStarted(false)
-      router.push("/feedback")
+      console.log("Cleanup complete, navigating to feedback page");
+      setIsStarted(false);
+      router.push("/feedback");
     } catch (error) {
-      console.error("Error ending interview:", error)
-      // Even if there's an error, try to clean up and move to feedback
-      setIsStarted(false)
+      console.error("Error in endInterview:", error);
+      console.log("Error details:", {
+        name: error instanceof Error ? error.name : "Unknown error",
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : "No stack trace",
+        vapiClientState: vapiRef.current ? 'exists' : 'missing'
+      });
       
-      // Store a default feedback if analysis failed
-      const defaultFeedback = {
-        score: 75,
-        summary: "Interview completed. We encountered an issue analyzing your responses, but you can still review the general feedback."
+      setIsStarted(false);
+      
+      // Store error state for feedback page
+      const errorState = {
+        message: error instanceof Error ? error.message : "Failed to generate interview feedback. Please try again.",
+        timestamp: new Date().toISOString()
       };
-      localStorage.setItem("mockr-feedback", JSON.stringify(defaultFeedback));
+      console.log("Storing error state:", errorState);
+      localStorage.setItem("mockr-interview-error", JSON.stringify(errorState));
       
-      router.push("/feedback")
+      // Still navigate to feedback page, which will show the error
+      router.push("/feedback");
     }
   }
 

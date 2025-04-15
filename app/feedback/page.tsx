@@ -13,6 +13,9 @@ import { FeedbackError } from '../components/FeedbackError';
 interface Feedback {
   score: number
   summary: string
+  technicalScore?: number
+  communicationScore?: number
+  problemSolvingScore?: number
 }
 
 export default function FeedbackPage() {
@@ -22,37 +25,73 @@ export default function FeedbackPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Check for interview error first
+    const savedError = localStorage.getItem("mockr-interview-error")
+    if (savedError) {
+      try {
+        const error = JSON.parse(savedError)
+        // Only use errors that are less than 5 minutes old
+        if (new Date().getTime() - new Date(error.timestamp).getTime() < 5 * 60 * 1000) {
+          setError(error.message)
+          setIsLoading(false)
+          localStorage.removeItem("mockr-interview-error")
+          return
+        }
+      } catch (e) {
+        console.error("Error parsing saved error:", e)
+      }
+      localStorage.removeItem("mockr-interview-error")
+    }
+
     // Load feedback from localStorage
     const savedFeedback = localStorage.getItem("mockr-feedback")
+    console.log({ savedFeedback })
+    const savedInterview = localStorage.getItem("mockr-interview")
+    console.log({ savedInterview  })
 
-    if (savedFeedback) {
-      try {
-        const parsedFeedback = JSON.parse(savedFeedback)
-        
-        // Validate the feedback data
-        if (!parsedFeedback) {
-          throw new Error("No feedback data found")
-        }
+    if (!savedInterview) {
+      setError("No interview data found. Please complete an interview first.")
+      setIsLoading(false)
+      return
+    }
 
-        // Ensure we have both required fields with correct types
-        const score = Number(parsedFeedback.score)
-        const summary = String(parsedFeedback.summary || '')
+    if (!savedFeedback) {
+      setError("No feedback available. The interview may have ended early or encountered an error. Please try again.")
+      setIsLoading(false)
+      return
+    }
 
-        if (isNaN(score) || !summary) {
-          throw new Error("Invalid feedback format")
-        }
-
-        // Store validated data
-        setFeedback({
-          score,
-          summary
-        })
-      } catch (error) {
-        console.error("Error parsing feedback:", error)
-        setError(error instanceof Error ? error.message : "Error generating feedback. Please try again.")
+    try {
+      const parsedFeedback = JSON.parse(savedFeedback)
+      
+      // Validate the feedback data
+      if (!parsedFeedback) {
+        throw new Error("Invalid feedback data")
       }
-    } else {
-      setError("No feedback data available. Please complete an interview first.")
+
+      // Ensure we have both required fields with correct types and valid values
+      const score = Number(parsedFeedback.score)
+      const summary = String(parsedFeedback.summary || '')
+
+      if (isNaN(score) || score < 0 || score > 100) {
+        throw new Error("Invalid score value")
+      }
+
+      if (!summary || summary === "No feedback available.") {
+        throw new Error("No feedback summary available")
+      }
+
+      // Store validated data with optional detailed scores
+      setFeedback({
+        score,
+        summary,
+        technicalScore: parsedFeedback.technicalScore,
+        communicationScore: parsedFeedback.communicationScore,
+        problemSolvingScore: parsedFeedback.problemSolvingScore
+      })
+    } catch (error) {
+      console.error("Error parsing feedback:", error)
+      setError("The interview was too short or ended unexpectedly. Please try again with longer, more detailed responses.")
     }
 
     setIsLoading(false)
@@ -96,28 +135,25 @@ export default function FeedbackPage() {
   }
 
   if (error) {
-    return <FeedbackError message={error} />;
+    return <FeedbackError 
+      message={error} 
+      onRetry={() => {
+        localStorage.removeItem("mockr-feedback")
+        localStorage.removeItem("mockr-interview-error")
+        router.push("/")
+      }} 
+    />;
   }
 
   if (!feedback || !feedback.score) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6">
-            <div className="text-center mb-6">
-              <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-2" />
-              <h2 className="text-xl font-bold">No Feedback Available</h2>
-              <p className="text-gray-500 mt-2">We couldn't find any feedback for your interview. Please try again.</p>
-            </div>
-
-            <Button className="w-full" onClick={() => router.push("/")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Return to Home
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    return <FeedbackError 
+      message="No feedback data available. Please try again." 
+      onRetry={() => {
+        localStorage.removeItem("mockr-feedback")
+        localStorage.removeItem("mockr-interview-error")
+        router.push("/")
+      }}
+    />
   }
 
   return (
@@ -151,11 +187,68 @@ export default function FeedbackPage() {
               </div>
               <div className="h-4 bg-gray-100 rounded-full">
                 <div
-                  className={`h-full ${getProgressColor(feedback.score)} rounded-full`}
+                  className={`h-full ${getProgressColor(feedback.score)} rounded-full transition-all duration-500`}
                   style={{ width: `${feedback.score}%` }}
                 />
               </div>
             </div>
+
+            {/* Detailed Scores */}
+            {(feedback.technicalScore || feedback.communicationScore || feedback.problemSolvingScore) && (
+              <div className="mb-6 space-y-4">
+                {feedback.technicalScore && (
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-600">Technical Knowledge</span>
+                      <span className={getScoreColor(feedback.technicalScore)}>
+                        {feedback.technicalScore}/100
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full">
+                      <div
+                        className={`h-full ${getProgressColor(feedback.technicalScore)} rounded-full transition-all duration-500`}
+                        style={{ width: `${feedback.technicalScore}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {feedback.communicationScore && (
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-600">Communication Skills</span>
+                      <span className={getScoreColor(feedback.communicationScore)}>
+                        {feedback.communicationScore}/100
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full">
+                      <div
+                        className={`h-full ${getProgressColor(feedback.communicationScore)} rounded-full transition-all duration-500`}
+                        style={{ width: `${feedback.communicationScore}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {feedback.problemSolvingScore && (
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-gray-600">Problem Solving</span>
+                      <span className={getScoreColor(feedback.problemSolvingScore)}>
+                        {feedback.problemSolvingScore}/100
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full">
+                      <div
+                        className={`h-full ${getProgressColor(feedback.problemSolvingScore)} rounded-full transition-all duration-500`}
+                        style={{ width: `${feedback.problemSolvingScore}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {feedback.summary && (
               <div className={`${getBackgroundColor(feedback.score)} rounded-lg p-6`}>
                 <div className="space-y-2">
@@ -163,7 +256,7 @@ export default function FeedbackPage() {
                     <Check className={`h-5 w-5 ${getCheckColor(feedback.score)}`} />
                     <h3 className="text-xl font-semibold">Performance Summary</h3>
                   </div>
-                  <p className="text-gray-800 text-lg">
+                  <p className="text-gray-800 text-lg whitespace-pre-wrap">
                     {feedback.summary}
                   </p>
                 </div>
