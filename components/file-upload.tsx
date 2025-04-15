@@ -5,16 +5,25 @@ import type React from "react"
 import { useState, useRef } from "react"
 import { Upload, FileText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { v4 as uuidv4 } from "uuid"
 
 interface FileUploadProps {
   onUpload: (file: File, text: string) => void
+  userId?: string // Add optional userId prop
 }
 
-export default function FileUpload({ onUpload }: FileUploadProps) {
+export default function FileUpload({ onUpload, userId }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const [partitionId] = useState(() => userId || `anonymous_${uuidv4()}`)
+
+  // Create a partition name from userId or generated ID
+  const getPartitionName = (id: string) => {
+    // Convert to lowercase and replace invalid characters with underscore
+    return `user_${id.toLowerCase().replace(/[^a-z0-9_-]/g, "_")}`
+  }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -56,6 +65,17 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
     setIsProcessing(true)
 
     try {
+      const partitionName = getPartitionName(partitionId)
+
+      // Ensure partition exists
+      await fetch("/api/ragie/partitions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: partitionName }),
+      })
+
       // Create form data for upload
       const formData = new FormData()
       formData.append("file", file)
@@ -64,13 +84,18 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
         JSON.stringify({
           title: file.name,
           scope: "resumes",
-          type: "resume"
+          type: "resume",
+          userId: partitionId, // Use the consistent partitionId
+          isAnonymous: !userId, // Flag to identify anonymous uploads
         })
       )
 
       // Upload to Ragie through our API route
       const uploadResponse = await fetch("/api/ragie/upload", {
         method: "POST",
+        headers: {
+          "x-partition": partitionName,
+        },
         body: formData,
       })
 
@@ -113,12 +138,14 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "x-partition": partitionName,
         },
         body: JSON.stringify({
           query: "Extract all relevant information from this resume",
           filter: {
             scope: "resumes",
-            type: "resume"
+            type: "resume",
+            userId: partitionId,
           }
         }),
       })
