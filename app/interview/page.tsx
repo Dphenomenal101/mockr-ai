@@ -195,7 +195,7 @@ export default function InterviewPage() {
       }
 
       // Start the call with explicit microphone configuration
-      await vapiRef.current.start({
+      const call = await vapiRef.current.start({
         name: "Technical Interviewer",
         transcriber: {
           provider: "deepgram",
@@ -248,6 +248,14 @@ export default function InterviewPage() {
         }
       });
 
+      // Store the call ID in localStorage
+      if (call?.id) {
+        console.log("Storing call ID:", call.id);
+        localStorage.setItem("mockr-call-id", call.id);
+      } else {
+        console.error("No call ID received from Vapi");
+      }
+
       setIsStarted(true);
       setTimeLeft(480); // 8 minutes
       setupVolumeMeter();
@@ -279,46 +287,54 @@ export default function InterviewPage() {
       console.log("Stopping Vapi call...");
       await vapiRef.current.stop();
       
-      // Get the call analysis - it should be available on the current call
-      console.log("Getting call analysis...");
-      const callId = vapiRef.current.call?.id;
-      console.log("Call ID:", callId);
+      // Get the call ID from localStorage
+      const callId = localStorage.getItem("mockr-call-id");
+      console.log("Retrieved call ID:", callId);
       
-      // Start analysis and wait for results
-      console.log("Starting analysis...");
-      const analysisId = await vapiRef.current.analyze({ callId });
-      console.log("Analysis ID:", analysisId);
-      
-      // Wait for analysis to complete
-      console.log("Waiting for analysis results...");
-      const result = await vapiRef.current.waitForAnalysis(analysisId);
-      console.log("Analysis result:", result);
-      
-      // The analysis comes directly in the result from Vapi
-      if (result && result.analysis) {
-        console.log("Valid analysis received:", result.analysis);
-        
-        const feedback = {
-          score: result.analysis.score,
-          summary: result.analysis.summary,
-          technicalScore: result.analysis.technicalKnowledge,
-          communicationScore: result.analysis.communicationSkills,
-          problemSolvingScore: result.analysis.problemSolving
-        };
-        console.log("Processed feedback:", feedback);
-        
-        // Validate the feedback
-        if (!feedback.summary) {
-          console.log("Missing summary in feedback");
-          throw new Error("Interview was too short or no responses were recorded. Please try again with longer, more detailed responses.");
-        }
-        
-        console.log("Storing feedback in localStorage");
-        localStorage.setItem("mockr-feedback", JSON.stringify(feedback));
-      } else {
-        console.log("Invalid or missing analysis:", result);
-        throw new Error("No analysis received from Vapi. The interview may have been too short.");
+      if (!callId) {
+        throw new Error("No call ID found. The interview may not have started properly.");
       }
+
+      // Fetch analysis from Vapi API
+      console.log("Fetching analysis from Vapi API...");
+      const response = await fetch(`https://api.vapi.ai/call/${callId}`, {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcmdJZCI6ImQxMTU3MmMyLTk3YmYtNDhmNi05OGNkLTc3MjJmZGRkNmRhZiIsInRva2VuIjp7InRhZyI6InByaXZhdGUifSwiaWF0IjoxNzQ0NzQ2ODU4LCJleHAiOjE3NDQ3NTA0NTh9.jsQBOWVqHWft8PGCwDaDD526lcCR5cVwHxcDAmpBiYs",
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error fetching analysis: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Received analysis data:", data);
+
+      if (!data?.analysis) {
+        throw new Error("No analysis data available. The interview may have been too short.");
+      }
+
+      // Map the analysis data to our feedback format
+      const feedback = {
+        score: data.analysis.analysis.score || 0,
+        summary: data.analysis.analysis.summary || '',
+        technicalScore: data.analysis.analysis.technicalKnowledge || 0,
+        communicationScore: data.analysis.analysis.communicationSkills || 0,
+        problemSolvingScore: data.analysis.analysis.problemSolving || 0
+      };
+      
+      console.log("Processed feedback:", feedback);
+      
+      // Validate the feedback
+      if (!feedback.summary) {
+        console.log("Missing summary in feedback");
+        throw new Error("Interview was too short or no responses were recorded. Please try again with longer, more detailed responses.");
+      }
+      
+      console.log("Storing feedback in localStorage");
+      localStorage.setItem("mockr-feedback", JSON.stringify(feedback));
 
       // Clean up resources
       console.log("Starting cleanup...");
@@ -348,6 +364,9 @@ export default function InterviewPage() {
       } catch (error) {
         console.error("Error closing audio context:", error);
       }
+
+      // Clean up call ID from localStorage
+      localStorage.removeItem("mockr-call-id");
 
       console.log("Cleanup complete, navigating to feedback page");
       setIsStarted(false);
