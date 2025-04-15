@@ -191,8 +191,15 @@ export default function Home() {
         </Card>
 
         <div className="text-center text-sm text-gray-500">
-          <p>Powered by Vapi</p> 
-          <p className="mt-1">Your data is processed securely and not stored permanently</p>
+          <a 
+            href="https://vapi.ai?utm_source=mockr"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center hover:opacity-80"
+          >
+            <span className="mr-1">Powered by</span>
+            <img src="/vapi-logo.svg" alt="Vapi" className="h-4 inline-block" />
+          </a>
         </div>
       </div>
     </div>
