@@ -56,77 +56,91 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
     setIsProcessing(true)
 
     try {
-      let text = ""
+      // Create form data for upload
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append(
+        "metadata",
+        JSON.stringify({
+          title: file.name,
+          scope: "resumes",
+          type: "resume"
+        })
+      )
 
-      if (fileType === "text/plain") {
-        text = await readTextFile(file)
-      } else if (fileType === "application/pdf") {
-        text = await readPdfFile(file)
+      // Upload to Ragie through our API route
+      const uploadResponse = await fetch("/api/ragie/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json()
+        throw new Error(error.error || "Failed to upload document")
       }
 
-      onUpload(file, text)
+      const uploadData = await uploadResponse.json()
+      const documentId = uploadData.id
+
+      // Poll for document processing status
+      let isReady = false
+      let attempts = 0
+      const maxAttempts = 30 // 30 seconds timeout
+      
+      while (!isReady && attempts < maxAttempts) {
+        const statusResponse = await fetch(`/api/ragie/status/${documentId}`)
+
+        if (!statusResponse.ok) {
+          const error = await statusResponse.json()
+          throw new Error(error.error || "Failed to check document status")
+        }
+
+        const statusData = await statusResponse.json()
+        if (statusData.status === "ready") {
+          isReady = true
+        } else {
+          attempts++
+          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before next check
+        }
+      }
+
+      if (!isReady) {
+        throw new Error("Document processing timed out")
+      }
+
+      // Get the processed text using retrieval API
+      const retrievalResponse = await fetch("/api/ragie/retrieve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: "Extract all relevant information from this resume",
+          filter: {
+            scope: "resumes",
+            type: "resume"
+          }
+        }),
+      })
+
+      if (!retrievalResponse.ok) {
+        const error = await retrievalResponse.json()
+        throw new Error(error.error || "Failed to retrieve document content")
+      }
+
+      const retrievalData = await retrievalResponse.json()
+      const extractedText = retrievalData.scored_chunks.map((chunk: any) => chunk.text).join("\n")
+
+      onUpload(file, extractedText)
     } catch (error) {
       console.error("Error processing file:", error)
       toast({
         title: "Error processing file",
-        description: "Failed to read the file. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to process the file. Please try again.",
         variant: "destructive",
       })
     } finally {
       setIsProcessing(false)
-    }
-  }
-
-  const readTextFile = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        if (e.target?.result) {
-          resolve(e.target.result as string)
-        } else {
-          reject(new Error("Failed to read text file"))
-        }
-      }
-      reader.onerror = () => reject(reader.error)
-      reader.readAsText(file)
-    })
-  }
-
-  const readPdfFile = async (file: File): Promise<string> => {
-    try {
-      // For a real implementation, we would use pdf.js
-      // This is a simplified version that doesn't actually parse PDFs
-      // In production, you would use the pdf.js library
-
-      const reader = new FileReader()
-      return new Promise((resolve, reject) => {
-        reader.onload = async (event) => {
-          try {
-            // In a real implementation with pdf.js:
-            // const pdfData = new Uint8Array(event.target.result as ArrayBuffer);
-            // const loadingTask = pdfjsLib.getDocument({ data: pdfData });
-            // const pdf = await loadingTask.promise;
-            // let text = '';
-            // for (let i = 1; i <= pdf.numPages; i++) {
-            //   const page = await pdf.getPage(i);
-            //   const content = await page.getTextContent();
-            //   text += content.items.map(item => item.str).join(' ');
-            // }
-
-            // For now, we'll just return a placeholder
-            resolve(
-              `Content extracted from ${file.name}. In a real implementation, we would use pdf.js to extract the text.`,
-            )
-          } catch (error) {
-            reject(error)
-          }
-        }
-        reader.onerror = reject
-        reader.readAsArrayBuffer(file)
-      })
-    } catch (error) {
-      console.error("Error parsing PDF:", error)
-      throw new Error("Failed to parse PDF file")
     }
   }
 
@@ -145,7 +159,7 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
       {isProcessing ? (
         <div className="flex flex-col items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-2"></div>
-          <p className="text-gray-600">Processing file...</p>
+          <p className="text-gray-600">Processing resume...</p>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center">
