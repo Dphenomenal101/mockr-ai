@@ -1,0 +1,55 @@
+# Mockr – AI-Powered Voice Interview Practice
+
+An AI-powered interview practice platform that uses voice interactions to help candidates prepare for job interviews. Built with Next.js, TypeScript, TailwindCSS, and Vapi's voice API.
+
+## Features
+
+- Resume upload (PDF/TXT)
+- Job description input
+- Multiple role selection
+- Voice-based interview questions
+- Real-time voice responses
+- Automated feedback and scoring
+- Follow-up question suggestions
+
+## Setup
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env.local` file in the root directory with your Vapi API key:
+   ```
+   NEXT_PUBLIC_VAPI_API_KEY=your_vapi_api_key_here
+   ```
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Deployment to Vercel
+
+1. Push your code to GitHub
+2. Connect your repository to Vercel
+3. Add your `NEXT_PUBLIC_VAPI_API_KEY` to the Environment Variables in your Vercel project settings
+4. Deploy!
+
+## Tech Stack
+
+- Next.js 13+ (App Router)
+- TypeScript
+- TailwindCSS
+- React Dropzone
+- PDF.js
+- Vapi AI Voice API
+
+## Development
+
+- Components are in the `app/components` directory
+- Main page component is in `app/page.tsx`
+- Styles are managed with TailwindCSS
+
+## License
+
+MIT
