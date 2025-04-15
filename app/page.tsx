@@ -26,6 +26,12 @@ export default function Home() {
   const [showCustomRole, setShowCustomRole] = useState(false)
   const [charCount, setCharCount] = useState(0)
 
+  const isFormValid = () => {
+    if (!resumeText || !jobDescription) return false
+    if (showCustomRole && !customRole) return false
+    return true
+  }
+
   const handleRoleChange = (value: string) => {
     setRole(value)
     setShowCustomRole(value === "custom")
@@ -183,7 +189,7 @@ export default function Home() {
             <Button
               className="w-full bg-blue-500 hover:bg-blue-600 text-white py-6 text-lg"
               onClick={startInterview}
-              disabled={isLoading}
+              disabled={isLoading || !isFormValid()}
             >
               {isLoading ? "Preparing Interview..." : "Start Interview"}
             </Button>
