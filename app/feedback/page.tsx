@@ -78,6 +78,8 @@ export default function FeedbackPage() {
       setIsLoading(false)
 
     } catch (error) {
+      setIsLoading(false)
+
       console.error("Error fetching feedback:", error)
       setError(error instanceof Error ? error.message : "Failed to fetch feedback. Please try again.")
     } finally {

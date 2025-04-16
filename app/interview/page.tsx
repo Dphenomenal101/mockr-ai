@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import VolumeIndicator from "@/components/volume-indicator"
 import TranscriptDisplay from "@/components/transcript-display"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Call } from "@vapi-ai/web/dist/api"
 
 // Try to import from vapi-client, but have a fallback
 let getVapiClient: () => any
@@ -194,62 +195,69 @@ export default function InterviewPage() {
         return;
       }
 
-      // Start the call with explicit microphone configuration
-      const call = await vapiRef.current.start({
-        name: "Technical Interviewer",
-        transcriber: {
-          provider: "deepgram",
-          model: "nova-2"
-        },
-        model: {
-          provider: "openai",
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: `You are conducting a job interview for a ${interviewData.role} position. Review the candidate's resume: ${interviewData.resumeText} And the job description: ${interviewData.jobDescription}. Begin immediately with a relevant technical or behavioral question - do not introduce yourself or ask "how can I help you today" but you should start by saying thanks for joining the interview and get started. Maintain a professional tone throughout the interview. Ask one question at a time and wait for the response before proceeding. And ask two to three questions max then give the candidate a chance to to ask questions after you're done asking your own questions because the time limit of the interview is under 8 minutes. Also, try to make at least one of your question based on the candidate's resume.`
-            }
-          ]
-        },
-        voice: {
-          provider: "playht",
-          voiceId: "jennifer"
-        },
-        analysisPlan: {
-          summaryPrompt: "Write direct feedback to the candidate about their interview performance. Focus on their strengths and specific areas for improvement. Use a professional but encouraging tone, addressing the candidate in the second person (you/your).",
-          structuredDataSchema: {
-            type: "object",
-            properties: {
-              score: {
-                type: "number",
-                description: "Overall interview score from 0-100 based on technical knowledge, communication skills, and problem-solving ability"
-              },
-              summary: {
-                type: "string",
-                description: "Direct feedback to the candidate about their performance, written in second person (you/your)"
-              },
-              technicalKnowledge: {
-                type: "number",
-                description: "Score from 0-100 for technical knowledge demonstrated"
-              },
-              communicationSkills: {
-                type: "number",
-                description: "Score from 0-100 for communication effectiveness"
-              },
-              problemSolving: {
-                type: "number",
-                description: "Score from 0-100 for problem-solving ability"
-              }
-            },
-            required: ["score", "summary"]
+      let call: Call | null = null
+
+      try {
+        // Start the call with explicit microphone configuration
+         call = await vapiRef.current.start({
+          name: "Technical Interviewer",
+          transcriber: {
+            provider: "deepgram",
+            model: "nova-2"
           },
-          successEvaluationPrompt: "Evaluate the candidate's interview performance from their perspective, highlighting their strengths and areas for growth.",
-          successEvaluationRubric: "PercentageScale"
-        }
-      });
+          model: {
+            provider: "openai",
+            model: "gpt-4",
+            messages: [
+              {
+                role: "system",
+                content: `You are conducting a job interview for a ${interviewData.role} position. Review the candidate's resume: ${interviewData.resumeText} And the job description: ${interviewData.jobDescription}. Begin immediately with a relevant technical or behavioral question - do not introduce yourself or ask "how can I help you today" but you should start by saying thanks for joining the interview and get started. Maintain a professional tone throughout the interview. Ask one question at a time and wait for the response before proceeding. And ask two to three questions max then give the candidate a chance to to ask questions after you're done asking your own questions because the time limit of the interview is under 8 minutes. Also, try to make at least one of your question based on the candidate's resume.`
+              }
+            ]
+          },
+          voice: {
+            provider: "playht",
+            voiceId: "jennifer"
+          },
+          analysisPlan: {
+            summaryPrompt: "Write direct feedback to the candidate about their interview performance. Focus on their strengths and specific areas for improvement. Use a professional but encouraging tone, addressing the candidate in the second person (you/your).",
+            structuredDataSchema: {
+              type: "object",
+              properties: {
+                score: {
+                  type: "number",
+                  description: "Overall interview score from 0-100 based on technical knowledge, communication skills, and problem-solving ability"
+                },
+                summary: {
+                  type: "string",
+                  description: "Direct feedback to the candidate about their performance, written in second person (you/your)"
+                },
+                technicalKnowledge: {
+                  type: "number",
+                  description: "Score from 0-100 for technical knowledge demonstrated"
+                },
+                communicationSkills: {
+                  type: "number",
+                  description: "Score from 0-100 for communication effectiveness"
+                },
+                problemSolving: {
+                  type: "number",
+                  description: "Score from 0-100 for problem-solving ability"
+                }
+              },
+              required: ["score", "summary"]
+            },
+            successEvaluationPrompt: "Evaluate the candidate's interview performance from their perspective, highlighting their strengths and areas for growth.",
+            successEvaluationRubric: "PercentageScale"
+          }
+        });
+      } catch (error) {
+        console.error("Error parsing interview data:", error)
+      }
+      
 
       // Store the call ID in localStorage
-      if (call?.id) {
+      if (call && call?.id) {
         console.log("Storing call ID:", call.id);
         localStorage.setItem("mockr-call-id", call.id);
       } else {
