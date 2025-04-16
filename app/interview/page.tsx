@@ -280,65 +280,20 @@ export default function InterviewPage() {
       return;
     }
 
+    // Show loading screen during cleanup
+    setIsLoading(true);
+
     try {
       console.log("Starting interview end process...");
       
-      // First stop the call
+      // Stop the Vapi call
       console.log("Stopping Vapi call...");
       await vapiRef.current.stop();
       
-      // Get the call ID from localStorage
-      const callId = localStorage.getItem("mockr-call-id");
-      console.log("Retrieved call ID:", callId);
-      
-      if (!callId) {
-        throw new Error("No call ID found. The interview may not have started properly.");
-      }
-
-      // Fetch analysis from our secure API endpoint
-      console.log("Fetching analysis from API...");
-      const response = await fetch(`/api/vapi?callId=${callId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Error fetching analysis: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("Received analysis data:", data);
-
-      if (!data?.analysis) {
-        throw new Error("No analysis data available. The interview may have been too short.");
-      }
-
-      // Map the analysis data to our feedback format
-      const feedback = {
-        score: data.analysis.analysis.score || 0,
-        summary: data.analysis.analysis.summary || 'No analysis data available. The interview may have been too short.',
-        technicalScore: data.analysis.analysis.technicalKnowledge || 0,
-        communicationScore: data.analysis.analysis.communicationSkills || 0,
-        problemSolvingScore: data.analysis.analysis.problemSolving || 0
-      };
-      
-      console.log("Processed feedback:", feedback);
-      
-      // Validate the feedback
-      if (!feedback.summary) {
-        console.log("Missing summary in feedback");
-        throw new Error("Interview was too short or no responses were recorded. Please try again with longer, more detailed responses.");
-      }
-      
-      console.log("Storing feedback in localStorage");
-      localStorage.setItem("mockr-feedback", JSON.stringify(feedback));
-
       // Clean up resources
       console.log("Starting cleanup...");
       
+      // Clear volume meter interval
       if (volumeIntervalRef.current) {
         console.log("Clearing volume meter interval");
         clearInterval(volumeIntervalRef.current);
@@ -365,11 +320,17 @@ export default function InterviewPage() {
         console.error("Error closing audio context:", error);
       }
 
-      // Clean up call ID from localStorage
-      localStorage.removeItem("mockr-call-id");
-
-      console.log("Cleanup complete, navigating to feedback page");
+      // Set interview as ended
       setIsStarted(false);
+      
+      // Ensure loading state is shown for at least a moment
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Reset loading state
+      setIsLoading(false);
+      
+      // Navigate to feedback page where user can manually fetch the analysis
+      console.log("Cleanup complete, navigating to feedback page");
       router.push("/feedback");
     } catch (error) {
       console.error("Error in endInterview:", error);
@@ -381,16 +342,17 @@ export default function InterviewPage() {
       });
       
       setIsStarted(false);
+      setIsLoading(false);
       
       // Store error state for feedback page
       const errorState = {
-        message: error instanceof Error ? error.message : "Failed to generate interview feedback. Please try again.",
+        message: error instanceof Error ? error.message : "Failed to end interview properly. Please try again.",
         timestamp: new Date().toISOString()
       };
       console.log("Storing error state:", errorState);
       localStorage.setItem("mockr-interview-error", JSON.stringify(errorState));
       
-      // Still navigate to feedback page, which will show the error
+      // Still navigate to feedback page
       router.push("/feedback");
     }
   }
