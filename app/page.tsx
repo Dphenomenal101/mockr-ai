@@ -198,7 +198,7 @@ export default function Home() {
 
         <div className="text-center text-sm text-gray-500">
           <a 
-            href="https://vapi.ai?utm_source=mockr"
+            href="https://vapi.ai?utm_source=mockr.dphenomenal.com"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center hover:opacity-80"
