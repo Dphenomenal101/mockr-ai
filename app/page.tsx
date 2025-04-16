@@ -106,7 +106,7 @@ export default function Home() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 px-4 py-8">
       <div className="w-full max-w-2xl">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-2">Mockr</h1>
+          <img src="/mockr-logo.svg" alt="Mockr" className="h-16 mx-auto mb-4" />
           <p className="text-xl">AI-Powered Voice Interview Practice</p>
         </div>
 
